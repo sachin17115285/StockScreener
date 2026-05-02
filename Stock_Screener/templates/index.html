@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Screener — MA Crossover Strategy</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-logo">📈</div>
+  <div>
+    <div class="header-title">Stock Screener</div>
+    <div class="header-sub">MA Crossover Strategy</div>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="market-badge">
+    <span class="market-dot"></span>
+    <span>NSE Live</span>
+  </div>
+</header>
+
+<!-- ── APP LAYOUT ───────────────────────────────────────────────── -->
+<div class="app-layout">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <div class="panel-title">Strategy Builder</div>
+
+      <!-- Universe -->
+      <div class="form-group">
+        <div class="section-label">Universe</div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="btn-nifty50" onclick="setUniverse('nifty50',this)">Nifty 50</button>
+          <button class="toggle-btn" id="btn-nifty100" onclick="setUniverse('nifty100',this)">Nifty 100</button>
+          <button class="toggle-btn" id="btn-allnse" onclick="setUniverse('allnse',this)">All NSE</button>
+        </div>
+        <div class="input-hint" id="universe-note">50 stocks loaded</div>
+      </div>
+
+      <!-- Stock Search -->
+      <div class="form-group">
+        <div class="section-label">Search Stock</div>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            id="stock-search"
+            class="search-input"
+            placeholder="Ticker or company name…"
+            autocomplete="off"
+            oninput="onSearchInput(this.value)"
+          />
+          <div id="search-results" class="search-dropdown hidden"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- MA Type -->
+      <div class="form-group">
+        <div class="section-label">MA Type</div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="btn-ema" onclick="setMAType('EMA',this)">EMA</button>
+          <button class="toggle-btn" id="btn-sma" onclick="setMAType('SMA',this)">SMA</button>
+        </div>
+      </div>
+
+      <!-- Fast / Slow periods -->
+      <div class="input-row">
+        <div class="form-group">
+          <label for="fast-period">Fast Period</label>
+          <input type="number" id="fast-period" class="num-input" value="12" min="1" max="200" />
+        </div>
+        <div class="form-group">
+          <label for="slow-period">Slow Period</label>
+          <input type="number" id="slow-period" class="num-input" value="26" min="1" max="500" />
+        </div>
+      </div>
+
+      <!-- Crossover Window -->
+      <div class="form-group">
+        <label>Crossover within <strong id="crossover-label">10</strong> days</label>
+        <div class="slider-row">
+          <input
+            type="range"
+            id="crossover-days"
+            class="slider"
+            min="1" max="30" value="10"
+            oninput="document.getElementById('crossover-label').textContent=this.value"
+          />
+          <span class="slider-val" id="crossover-val">10</span>
+        </div>
+      </div>
+
+      <!-- Hold Period -->
+      <div class="form-group">
+        <label for="hold-days">Hold Period (Backtest)</label>
+        <select id="hold-days" class="select-input">
+          <option value="21">1 Month</option>
+          <option value="63" selected>3 Months</option>
+          <option value="126">6 Months</option>
+          <option value="252">1 Year</option>
+        </select>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Filters -->
+      <div class="form-group">
+        <div class="section-label">Filters</div>
+        <div class="filter-row">
+          <label class="switch-label">
+            <span>AVWAP Filter (price above AVWAP)</span>
+            <input type="checkbox" id="avwap-filter" class="switch-input" checked />
+            <span class="switch-track"></span>
+          </label>
+          <label class="switch-label">
+            <span>RS Filter (outperforming Nifty)</span>
+            <input type="checkbox" id="rs-filter" class="switch-input" checked />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Quick Presets -->
+      <div class="form-group">
+        <div class="section-label">Quick Presets</div>
+        <div class="preset-btns">
+          <button class="preset-btn" onclick="applyPreset(12,26,'EMA')">
+            <strong>EMA 12/26</strong>MACD Standard
+          </button>
+          <button class="preset-btn" onclick="applyPreset(50,200,'SMA')">
+            <strong>SMA 50/200</strong>Golden Cross
+          </button>
+          <button class="preset-btn" onclick="applyPreset(10,50,'EMA')">
+            <strong>EMA 10/50</strong>Momentum
+          </button>
+          <button class="preset-btn" onclick="applyPreset(20,50,'SMA')">
+            <strong>SMA 20/50</strong>Swing Trade
+          </button>
+        </div>
+      </div>
+
+      <!-- Run Button -->
+      <button class="run-btn" id="run-btn" onclick="runScreener()">
+        ▶ Run Screener
+      </button>
+      <div class="screen-meta" id="screen-meta" style="display:none"></div>
+
+      <div class="sidebar-resize-hint">⟺ drag right edge to resize</div>
+    </div><!-- /sidebar-inner -->
+  </aside><!-- /sidebar -->
+
+  <!-- ── RESIZE HANDLE ─────────────────────────────────────── -->
+  <div id="resize-handle" title="Drag to resize sidebar">
+    <div class="resize-tooltip" id="resize-tooltip">280px</div>
+  </div>
+
+<!-- ── MAIN CONTENT ─────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Empty State (shown only when all 3 sections are hidden) -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">📊</div>
+      <h2>Ready to Screen Stocks</h2>
+      <p>Configure your MA crossover strategy in the left panel, then click <strong>Run Screener</strong> to find opportunities across NSE stocks.</p>
+      <div class="feature-pills">
+        <span class="pill">✦ EMA &amp; SMA Crossovers</span>
+        <span class="pill">📈 AVWAP Analysis</span>
+        <span class="pill">⚡ Relative Strength</span>
+        <span class="pill">📉 ADX Trend Strength</span>
+        <span class="pill">🔄 Backtest Engine</span>
+        <span class="pill">👁 Watchlist Alerts</span>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 1 — STOCK LOOKUP (search click result)
+         ══════════════════════════════════════════════════════ -->
+    <section id="section-lookup" class="content-section" style="display:none">
+      <!-- Section header with collapse -->
+      <div class="cs-header" onclick="toggleSection('lookup')">
+        <div class="cs-header-left">
+          <span class="cs-icon">🔍</span>
+          <div>
+            <div class="cs-title">Stock Lookup</div>
+            <div class="cs-sub" id="lookup-sub">Select a stock from the search results</div>
+          </div>
+        </div>
+        <div class="cs-header-right">
+          <button class="cs-collapse-btn" id="collapse-btn-lookup" title="Collapse section">
+            <span class="cs-chevron">▲</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Section body -->
+      <div class="cs-body" id="cs-body-lookup">
+
+        <!-- Spotlight Header -->
+        <div class="spotlight-header">
+          <div class="spotlight-title-block">
+            <div class="spotlight-ticker" id="sp-ticker">—</div>
+            <div class="spotlight-name" id="sp-name">—</div>
+            <div class="spotlight-badges">
+              <span id="sp-sector-badge" class="sector-tag">—</span>
+              <span id="sp-avwap-badge">—</span>
+              <span id="sp-score-badge" class="score-badge score-med" style="display:none">—</span>
+            </div>
+          </div>
+          <div class="spotlight-actions">
+            <button class="action-btn watch-btn" id="sp-watch-btn" onclick="spotlightAddToWatchlist()" title="Add to Watchlist">⭐ Watchlist</button>
+            <button class="action-btn" onclick="closeSpotlight()" title="Close">✕ Close</button>
+          </div>
+        </div>
+
+        <!-- Screener Result Strip -->
+        <div id="sp-screen-result" style="display:none" class="sp-screen-result"></div>
+
+        <!-- Spotlight Tabs -->
+        <div class="spotlight-tabs">
+          <button class="sp-tab-btn active" data-sptab="chart" onclick="switchSpotlightTab('chart', this)">📈 Chart</button>
+          <button class="sp-tab-btn" data-sptab="performance" onclick="switchSpotlightTab('performance', this)">🔄 Performance &amp; Backtest</button>
+        </div>
+
+        <!-- Chart Tab -->
+        <div id="sp-tab-chart" class="sp-tab-panel">
+          <div id="sp-chart-loading" class="loading-msg">
+            <span class="loading-spinner"></span>
+            <span>Loading chart data…</span>
+          </div>
+          <div id="sp-chart-body" style="display:none">
+            <div class="chart-container" style="height:360px">
+              <canvas id="sp-stock-chart"></canvas>
+            </div>
+            <div class="chart-legend" style="margin-top:10px">
+              <div class="legend-item"><span class="legend-dot" style="background:#00d4aa"></span><span>Price</span></div>
+              <div class="legend-item" id="sp-legend-fast"><span class="legend-dot" style="background:#58a6ff"></span><span>Fast MA</span></div>
+              <div class="legend-item" id="sp-legend-slow"><span class="legend-dot" style="background:#ff4d6d"></span><span>Slow MA</span></div>
+              <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span><span>AVWAP</span></div>
+            </div>
+          </div>
+          <div id="sp-chart-error" class="error-msg" style="display:none"></div>
+        </div>
+
+        <!-- Performance / Backtest Tab -->
+        <div id="sp-tab-performance" class="sp-tab-panel" style="display:none">
+          <div id="sp-bt-loading" class="loading-msg">
+            <span class="loading-spinner"></span>
+            <span>Running backtest…</span>
+          </div>
+          <div id="sp-bt-results" style="display:none">
+            <div class="stats-grid">
+              <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value win-rate-val" id="sp-stat-winrate">—</div></div>
+              <div class="stat-card"><div class="stat-label">Avg Return</div><div class="stat-value" id="sp-stat-avgreturn">—</div></div>
+              <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value red-val" id="sp-stat-maxdd">—</div></div>
+              <div class="stat-card"><div class="stat-label">Total Trades</div><div class="stat-value" id="sp-stat-trades">—</div></div>
+              <div class="stat-card"><div class="stat-label">Total Return</div><div class="stat-value" id="sp-stat-totalret">—</div></div>
+              <div class="stat-card"><div class="stat-label">Final Equity</div><div class="stat-value" id="sp-stat-equity">—</div></div>
+            </div>
+            <div class="chart-container" style="margin-bottom:20px">
+              <canvas id="sp-equity-chart"></canvas>
+            </div>
+            <div class="trades-title">Trade History</div>
+            <div class="trades-list" id="sp-trades-list"></div>
+          </div>
+          <div id="sp-bt-error" class="error-msg" style="display:none"></div>
+        </div>
+
+      </div><!-- /cs-body-lookup -->
+    </section><!-- /section-lookup -->
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 2 — UNIVERSE SCREENER (run screener result)
+         ══════════════════════════════════════════════════════ -->
+    <section id="section-screener" class="content-section" style="display:none">
+      <div class="cs-header" onclick="toggleSection('screener')">
+        <div class="cs-header-left">
+          <span class="cs-icon">📊</span>
+          <div>
+            <div class="cs-title">Universe Screener</div>
+            <div class="cs-sub" id="screener-sub">Last run results</div>
+          </div>
+        </div>
+        <div class="cs-header-right">
+          <div class="cs-badges" id="screener-badges"></div>
+          <button class="cs-collapse-btn" id="collapse-btn-screener" title="Collapse section">
+            <span class="cs-chevron">▲</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cs-body" id="cs-body-screener">
+
+        <!-- Summary Bar -->
+        <div id="results-summary" class="results-summary">
+          <div class="summary-stat">
+            <span class="stat-num" id="sum-matched">—</span>
+            <span class="stat-lbl">Matched</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-num" id="sum-scanned">—</span>
+            <span class="stat-lbl">Scanned</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-num" id="sum-universe">—</span>
+            <span class="stat-lbl">Universe</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-num" id="sum-strategy">—</span>
+            <span class="stat-lbl">Strategy</span>
+          </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="table-wrapper">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Stock</th>
+                <th>Sector</th>
+                <th class="text-right">Price ₹</th>
+                <th class="text-center">Win %</th>
+                <th>Crossover</th>
+                <th class="text-right">AVWAP ₹</th>
+                <th>AVWAP Status</th>
+                <th class="text-right">RS vs Nifty</th>
+                <th class="text-right">Vol Ratio</th>
+                <th class="text-right">ADX</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Sector Heatmap -->
+        <div class="heatmap-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">🗺 Sector Heatmap</div>
+              <div class="section-sub">Signal distribution across sectors</div>
+            </div>
+          </div>
+          <div class="heatmap-chart-wrap">
+            <canvas id="heatmap-chart"></canvas>
+          </div>
+        </div>
+
+      </div><!-- /cs-body-screener -->
+    </section><!-- /section-screener -->
+
+    <!-- ══════════════════════════════════════════════════════
+         SECTION 3 — WATCHLIST
+         ══════════════════════════════════════════════════════ -->
+    <section id="section-watchlist" class="content-section" style="display:none">
+      <div class="cs-header" onclick="toggleSection('watchlist')">
+        <div class="cs-header-left">
+          <span class="cs-icon">👁</span>
+          <div>
+            <div class="cs-title">Watchlist</div>
+            <div class="cs-sub" id="watchlist-sub">Stocks you are monitoring</div>
+          </div>
+        </div>
+        <div class="cs-header-right">
+          <div class="watchlist-header-actions" onclick="event.stopPropagation()">
+            <button class="wl-run-btn" id="wl-run-btn" onclick="runWatchlistScreen()" title="Run current strategy on watchlist stocks">
+              ▶ Run on Watchlist
+            </button>
+            <button class="clear-btn" onclick="clearWatchlist()">Clear All</button>
+          </div>
+          <button class="cs-collapse-btn" id="collapse-btn-watchlist" title="Collapse section">
+            <span class="cs-chevron">▲</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cs-body" id="cs-body-watchlist">
+
+        <!-- Watchlist stock cards grid header (collapsible sub-section) -->
+        <div class="wl-cards-header" id="wl-cards-header">
+          <span class="wl-cards-title">Watchlist Stocks</span>
+          <span class="wl-cards-count" id="watchlist-count">0</span>
+          <button class="cs-collapse-btn wl-cards-collapse-btn" id="wl-cards-collapse-btn" onclick="toggleWatchlistCards()" title="Collapse cards">
+            <span class="cs-chevron" id="wl-cards-chevron">▲</span>
+          </button>
+        </div>
+        <!-- Cards grid (peek / expand handled by JS) -->
+        <div id="watchlist-items-wrap">
+          <div class="watchlist-items" id="watchlist-items"></div>
+        </div>
+
+        <!-- Watchlist screen results (shown after Run) -->
+        <div id="wl-results-section" style="display:none">
+
+          <div class="wl-results-divider">
+            <span>Screener Results — <span id="wl-strategy-label">—</span></span>
+          </div>
+
+          <div class="wl-results-summary" id="wl-results-summary"></div>
+
+          <!-- Matched -->
+          <div id="wl-matched-section" style="display:none">
+            <div class="wl-results-header wl-matched-header">
+              <span class="wl-results-icon">✅</span>
+              <span class="wl-results-title">Passed All Filters</span>
+              <span class="wl-results-count" id="wl-matched-count">0</span>
+            </div>
+            <div class="table-wrapper">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th>Stock</th>
+                    <th>Sector</th>
+                    <th class="text-right">Price ₹</th>
+                    <th class="text-center">Win %</th>
+                    <th>Crossover</th>
+                    <th class="text-right">AVWAP ₹</th>
+                    <th>AVWAP Status</th>
+                    <th class="text-right">RS vs Nifty</th>
+                    <th class="text-right">Vol Ratio</th>
+                    <th class="text-right">ADX</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="wl-matched-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Skipped — same table layout as matched -->
+          <div id="wl-skipped-section" style="display:none">
+            <div class="wl-results-header wl-skipped-header">
+              <span class="wl-results-icon">❌</span>
+              <span class="wl-results-title">Did Not Pass Filters</span>
+              <span class="wl-results-count" id="wl-skipped-count">0</span>
+            </div>
+            <div class="table-wrapper">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th>Stock</th>
+                    <th>Sector</th>
+                    <th class="text-right">Price ₹</th>
+                    <th class="text-center">Win %</th>
+                    <th>Failed Filters</th>
+                    <th class="text-right">AVWAP ₹</th>
+                    <th>AVWAP Status</th>
+                    <th class="text-right">RS vs Nifty</th>
+                    <th class="text-right">Vol Ratio</th>
+                    <th class="text-right">ADX</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="wl-skipped-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /wl-results-section -->
+
+      </div><!-- /cs-body-watchlist -->
+    </section><!-- /section-watchlist -->
+
+  </main><!-- /main-content -->
+
+
+</div><!-- /app-layout -->
+
+<!-- ── MODAL (outside app-layout) ──────────────────────────────── -->
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <div class="modal-title-block">
+        <div class="modal-ticker" id="modal-ticker">TICKER</div>
+        <div class="modal-name" id="modal-name">Company Name</div>
+        <div class="modal-badges">
+          <span id="modal-sector-badge" class="sector-tag">—</span>
+          <span id="modal-score-badge" class="score-badge score-med">—</span>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal()" title="Close">✕</button>
+    </div>
+
+    <!-- Modal Tabs -->
+    <div class="modal-tabs">
+      <button class="tab-btn active" data-tab="chart" onclick="switchTab('chart',this)">📈 Chart</button>
+      <button class="tab-btn" data-tab="backtest" onclick="switchTab('backtest',this)">🔄 Backtest</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body">
+
+      <!-- Chart Tab Panel -->
+      <div id="tab-panel-chart" class="tab-panel">
+        <div id="chart-loading" class="loading-msg">
+          <span class="loading-spinner"></span>
+          <span>Loading chart data…</span>
+        </div>
+        <div id="chart-body" style="display:none">
+          <div class="chart-container">
+            <canvas id="stock-chart"></canvas>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item" id="legend-fast">
+              <span class="legend-dot" style="background:#00d4aa"></span>
+              <span>Fast MA</span>
+            </div>
+            <div class="legend-item" id="legend-slow">
+              <span class="legend-dot" style="background:#f59e0b"></span>
+              <span>Slow MA</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#58a6ff"></span>
+              <span>Price</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#ff4d6d"></span>
+              <span>AVWAP</span>
+            </div>
+          </div>
+        </div>
+      </div><!-- /tab-panel-chart -->
+
+      <!-- Backtest Tab Panel -->
+      <div id="tab-panel-backtest" class="tab-panel" style="display:none">
+        <div id="backtest-loading" class="loading-msg">
+          <span class="loading-spinner"></span>
+          <span>Running backtest…</span>
+        </div>
+        <div id="backtest-results" style="display:none">
+
+          <!-- Stats Grid (6 stat cards) -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Win Rate</div>
+              <div class="stat-value win-rate-val" id="stat-winrate">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Avg Return</div>
+              <div class="stat-value" id="stat-avgreturn">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Max Drawdown</div>
+              <div class="stat-value red-val" id="stat-maxdd">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Trades</div>
+              <div class="stat-value" id="stat-trades">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Return</div>
+              <div class="stat-value" id="stat-totalret">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Final Equity</div>
+              <div class="stat-value" id="stat-equity">—</div>
+            </div>
+          </div>
+
+          <!-- Equity Chart -->
+          <div class="chart-container" style="margin-bottom:20px">
+            <canvas id="equity-chart"></canvas>
+          </div>
+
+          <!-- Trades List -->
+          <div class="trades-title">Trade History</div>
+          <div class="trades-list" id="trades-list"></div>
+
+        </div><!-- /backtest-results -->
+        <div id="backtest-error" class="error-msg" style="display:none"></div>
+      </div><!-- /tab-panel-backtest -->
+
+    </div><!-- /modal-body -->
+  </div><!-- /modal -->
+</div><!-- /modal-overlay -->
+
+<!-- ── TOAST ─────────────────────────────────────────────────────── -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- ── SCRIPTS ───────────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>
